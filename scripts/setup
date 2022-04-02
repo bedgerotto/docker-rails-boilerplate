@@ -1,0 +1,5 @@
+#!/bin/sh
+
+bundle add rails && bundle exec rails new . --database=postgresql --force
+echo ".bundle/" >> .gitignore
+echo ".local/" >> .gitignore

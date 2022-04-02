@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: ${APP_NAME}_postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASS:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:${POSTGRES_PORT:-5432}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  web:
+    image: ${APP_NAME}
+    build:
+      context: .
+      args:
+        - USER_NAME=${USER:-root}
+        - USER_ID=${USER_ID:-1000}
+        - RUBY=${RUBY}
+        - APP_NAME=${APP_NAME}
+    command: sh -c "rm -f tmp/pids/server.pid && bundle exec rails s -p ${RAILS_PORT:-3000} -b '0.0.0.0'"
+    container_name: ${APP_NAME}
+    stdin_open: true
+    tty: true
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "${RAILS_PORT:-3000}:${RAILS_PORT:-3000}"
+    volumes:
+      - .:/usr/src/${APP_NAME}:cached
+    depends_on:
+      - postgres
+      - redis
+
+  sidekiq:
+    image: ${APP_NAME}
+    command: bundle exec sidekiq
+    container_name: sidekiq
+    stdin_open: true
+    tty: true
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    ports:
+      - "${RAILS_PORT:-3000}:${RAILS_PORT:-3000}"
+    volumes:
+      - .:/${APP_NAME}:cached
+    depends_on:
+      - web
+      - redis
+      - postgres
+
+  redis:
+    image: redis:latest
+    command: redis-server
+    volumes:
+      - redisdata:/data
+volumes:
+  pgdata:
+  redisdata:
